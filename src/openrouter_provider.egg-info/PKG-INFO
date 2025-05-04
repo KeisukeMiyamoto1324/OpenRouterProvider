@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: openrouter-provider
+Version: 0.0.1
+Summary: This is an unofficial wrapper of OpenRouter.
+Author-email: Keisuke Miyamto <aichiboyhighschool@gmail.com>
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: annotated-types
+Requires-Dist: anyio
+Requires-Dist: certifi
+Requires-Dist: distro
+Requires-Dist: h11
+Requires-Dist: httpcore
+Requires-Dist: httpx
+Requires-Dist: idna
+Requires-Dist: jiter
+Requires-Dist: openai
+Requires-Dist: pillow
+Requires-Dist: pydantic
+Requires-Dist: pydantic_core
+Requires-Dist: python-dotenv
+Requires-Dist: sniffio
+Requires-Dist: tqdm
+Requires-Dist: typing-inspection
+Requires-Dist: typing_extensions

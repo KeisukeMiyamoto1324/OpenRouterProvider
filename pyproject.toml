@@ -1,0 +1,36 @@
+[project]
+name = "openrouter-provider"
+version = "0.0.1"
+description = "This is an unofficial wrapper of OpenRouter."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "LICENSE" }
+
+authors = [
+  { name = "Keisuke Miyamto", email = "aichiboyhighschool@gmail.com" }
+]
+
+dependencies = [
+  "annotated-types",
+  "anyio",
+  "certifi",
+  "distro",
+  "h11",
+  "httpcore",
+  "httpx",
+  "idna",
+  "jiter",
+  "openai",
+  "pillow",
+  "pydantic",
+  "pydantic_core",
+  "python-dotenv",
+  "sniffio",
+  "tqdm",
+  "typing-inspection",
+  "typing_extensions"
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
