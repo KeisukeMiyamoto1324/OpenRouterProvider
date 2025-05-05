@@ -57,7 +57,7 @@ response = ai.invoke(model=gpt_4o_mini, query=query)
 print(response.text)
 
 # Send next query. Chatbot_manager automatically handle chat history.
-query = Chat_message(text="Tell me a short story.", images=[dog, cat])
+query = Chat_message(text="Tell me a short story.")
 response = ai.invoke(model=gpt_4o_mini, query=query)
 print(response.text)
 
@@ -76,8 +76,8 @@ from OpenRouterProvider.Chatbot_manager import Chat_message, Chatbot_manager
 from OpenRouterProvider.LLMs import gpt_4o_mini
 from PIL import Image
 
-dog = Image.open("tests/images/dog.jpg")
-cat = Image.open("tests/images/cat.jpg")
+dog = Image.open("dog.jpg")
+cat = Image.open("cat.jpg")
 
 # Send query with images
 ai = Chatbot_manager(system_prompt="Please answer in English.")

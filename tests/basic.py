@@ -1,3 +1,5 @@
+# python3 -m tests.basic
+
 from src.OpenRouterProvider.Chatbot_manager import *
 
 
