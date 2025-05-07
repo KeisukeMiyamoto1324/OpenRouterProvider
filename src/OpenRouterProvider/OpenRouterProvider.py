@@ -5,6 +5,25 @@ from .LLMs import *
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional, Literal
+import json
+
+
+@dataclass
+class ProviderConfig:
+    order: Optional[List[str]] = None
+    allow_fallbacks: bool = None
+    require_parameters: bool = None
+    data_collection: Literal["allow", "deny"] = None
+    only: Optional[List[str]] = None
+    ignore: Optional[List[str]] = None
+    quantizations: Optional[List[str]] = None
+    sort: Optional[Literal["price", "throughput"]] = None
+    max_price: Optional[dict] = None
+    
+    def to_dict(self) -> dict:
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
 
 class OpenRouterProvider:
@@ -62,15 +81,14 @@ class OpenRouterProvider:
         return messages
 
 
-    def invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools:list[tool_model]=[]) -> Chat_message:
+    def invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools:list[tool_model]=[], provider:ProviderConfig=None) -> Chat_message:
+        print(provider.to_dict())
         response = self.client.chat.completions.create(
             model=model.name,
             messages=self.make_prompt(system_prompt, querys),
             tools=[tool.tool_definition for tool in tools],
             extra_body={
-                "provider": {
-                    "order": ["Groq"]
-                }
+                "provider": provider.to_dict() if provider else None
             }
         )
         reply = Chat_message(text=response.choices[0].message.content, role=Role.ai)
@@ -80,5 +98,6 @@ class OpenRouterProvider:
             for tool in response.choices[0].message.tool_calls:
                 reply.tool_calls.append(ToolCall(id=tool.id, name=tool.function.name, arguments=tool.function.arguments))
                 
+        print(response)
         return reply
 

@@ -80,14 +80,15 @@ class Chatbot_manager:
             
         print("----------------------------------------------------------\n")
 
-    def invoke(self, model: LLMModel, query: Chat_message, tools: list[tool_model]=[]) -> Chat_message:
+    def invoke(self, model: LLMModel, query: Chat_message, tools: list[tool_model]=[], provider:ProviderConfig=None) -> Chat_message:
         self._memory.append(query)
         client = OpenRouterProvider()
         reply = client.invoke(
             model=model,
             system_prompt=self._system_prompt,
             querys=self._memory,
-            tools=self.tools + tools
+            tools=self.tools + tools,
+            provider=provider
         )
         reply.answeredBy = model
         self._memory.append(reply)
@@ -111,7 +112,8 @@ class Chatbot_manager:
                 model=model,
                 system_prompt=self._system_prompt,
                 querys=self._memory,
-                tools=self.tools + tools
+                tools=self.tools + tools,
+                provider=provider
             )
             
             reply.answeredBy = model
