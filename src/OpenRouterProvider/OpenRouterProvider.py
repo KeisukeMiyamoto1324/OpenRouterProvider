@@ -82,15 +82,15 @@ class OpenRouterProvider:
 
 
     def invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools:list[tool_model]=[], provider:ProviderConfig=None) -> Chat_message:
-        print(provider.to_dict())
         response = self.client.chat.completions.create(
             model=model.name,
             messages=self.make_prompt(system_prompt, querys),
-            tools=[tool.tool_definition for tool in tools],
+            tools=[tool.tool_definition for tool in tools] if tools else None,
             extra_body={
                 "provider": provider.to_dict() if provider else None
             }
         )
+        print(response)
         reply = Chat_message(text=response.choices[0].message.content, role=Role.ai)
         
         if response.choices[0].message.tool_calls:
@@ -98,6 +98,5 @@ class OpenRouterProvider:
             for tool in response.choices[0].message.tool_calls:
                 reply.tool_calls.append(ToolCall(id=tool.id, name=tool.function.name, arguments=tool.function.arguments))
                 
-        print(response)
         return reply
 
