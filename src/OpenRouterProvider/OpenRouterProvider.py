@@ -90,7 +90,6 @@ class OpenRouterProvider:
                 "provider": provider.to_dict() if provider else None
             }
         )
-        print(response)
         reply = Chat_message(text=response.choices[0].message.content, role=Role.ai)
         
         if response.choices[0].message.tool_calls:
