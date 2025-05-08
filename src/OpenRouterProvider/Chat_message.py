@@ -6,6 +6,8 @@ import base64
 from io import BytesIO
 from dataclasses import dataclass
 
+from openai.types.chat import ChatCompletion
+
 
 class Role(Enum):
     system = "system"
@@ -24,15 +26,21 @@ class ToolCall:
 
 
 class Chat_message:
-    def __init__(self, text: str, images: list[Image.Image]=None, role: Role=Role.user, answerdBy: LLMModel=None, token :int=0, cost: float=0) -> None:
+    def __init__(self, 
+                 text: str, 
+                 images: list[Image.Image]=None, 
+                 role: Role=Role.user, 
+                 answerdBy: LLMModel=None, 
+                 raw_response: ChatCompletion=None
+                ) -> None:
         self.role = role
         self.text = text
         self.images = self._process_image(images=images)
-        self.token = token
-        self.cost = cost
         self.answeredBy: LLMModel = answerdBy
         
         self.tool_calls: list[ToolCall] = []
+        self.raw_resoonse: ChatCompletion = raw_response
+
 
     def __str__(self) -> str:
         # ANSI color codes for blue, green, and reset (to default)
