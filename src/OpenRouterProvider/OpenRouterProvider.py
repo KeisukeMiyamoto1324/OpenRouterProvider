@@ -3,12 +3,13 @@ from .Chat_message import *
 from .Tool import tool_model
 from .LLMs import *
 
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
+from openai.types.chat import ChatCompletionChunk
 from dotenv import load_dotenv
-import os
+import os, time
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Literal
-import json
+from typing import List, Optional, Literal, Iterator, AsyncIterator
+from pprint import pprint
 
 # エラーのみ表示、詳細なトレースバック付き
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -38,6 +39,10 @@ class OpenRouterProvider:
         if not api_key:
             logger.error("OPENROUTER_API_KEY is not set in environment variables.")
         self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key,
+        )
+        self.async_client = AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
         )
@@ -110,3 +115,88 @@ class OpenRouterProvider:
         except Exception as e:
             logger.exception(f"An error occurred while invoking the model: {e.__class__.__name__}: {str(e)}")
             return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
+        
+    def invoke_stream(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools: list[tool_model] = [], provider: ProviderConfig = None) -> Iterator[ChatCompletionChunk]:
+        # chunk example
+        # ChatCompletionChunk(id='gen-1746748260-mdKZLTs9QY7MmUxWKb8V', choices=[Choice(delta=ChoiceDelta(content='!', function_call=None, refusal=None, role='assistant', tool_calls=None), finish_reason=None, index=0, logprobs=None, native_finish_reason=None)], created=1746748260, model='openai/gpt-4o-mini', object='chat.completion.chunk', service_tier=None, system_fingerprint='fp_e2f22fdd96', usage=None, provider='OpenAI')
+        
+        # ChatCompletionChunk(id='gen-1746748260-mdKZLTs9QY7MmUxWKb8V', choices=[Choice(delta=ChoiceDelta(content='', function_call=None, refusal=None, role='assistant', tool_calls=None), finish_reason='stop', index=0, logprobs=None, native_finish_reason='stop')], created=1746748260, model='openai/gpt-4o-mini', object='chat.completion.chunk', service_tier=None, system_fingerprint='fp_e2f22fdd96', usage=None, provider='OpenAI')
+        
+        # ChatCompletionChunk(id='gen-1746748260-mdKZLTs9QY7MmUxWKb8V', choices=[Choice(delta=ChoiceDelta(content='', function_call=None, refusal=None, role='assistant', tool_calls=None), finish_reason=None, index=0, logprobs=None, native_finish_reason=None)], created=1746748260, model='openai/gpt-4o-mini', object='chat.completion.chunk', service_tier=None, system_fingerprint=None, usage=CompletionUsage(completion_tokens=54, prompt_tokens=61, total_tokens=115, completion_tokens_details=CompletionTokensDetails(reasoning_tokens=0), prompt_tokens_details={'cached_tokens': 0}), provider='OpenAI')
+        
+        try:
+            messages = self.make_prompt(system_prompt, querys)
+
+            tool_defs = [tool.tool_definition for tool in tools] if tools else None
+            provider_dict = provider.to_dict() if provider else None
+
+            response = self.client.chat.completions.create(
+                model=model.name,
+                messages=messages,
+                tools=tool_defs,
+                extra_body={"provider": provider_dict},
+                stream=True
+            )
+            
+            return response
+
+        except Exception as e:
+            logger.exception(f"An error occurred while invoking the model: {e.__class__.__name__}: {str(e)}")
+            return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
+
+    async def async_invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools: list[tool_model] = [], provider: ProviderConfig = None) -> Chat_message:
+        try:
+            messages = self.make_prompt(system_prompt, querys)
+
+            tool_defs = [tool.tool_definition for tool in tools] if tools else None
+            provider_dict = provider.to_dict() if provider else None
+
+            response = await self.async_client.chat.completions.create(
+                model=model.name,
+                messages=messages,
+                tools=tool_defs,
+                extra_body={"provider": provider_dict}
+            )
+
+            reply = Chat_message(text=response.choices[0].message.content, role=Role.ai, raw_response=response)
+
+            if response.choices[0].message.tool_calls:
+                reply.role = Role.tool
+                for tool in response.choices[0].message.tool_calls:
+                    reply.tool_calls.append(ToolCall(id=tool.id, name=tool.function.name, arguments=tool.function.arguments))
+            return reply
+
+        except Exception as e:
+            logger.exception(f"An error occurred while asynchronously invoking the model: {e.__class__.__name__}: {str(e)}")
+            return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
+        
+    async def async_invoke_stream(
+        self,
+        model: LLMModel,
+        system_prompt: Chat_message,
+        querys: list[Chat_message],
+        tools: list[tool_model] = [],
+        provider: ProviderConfig = None
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        try:
+            messages = self.make_prompt(system_prompt, querys)
+
+            tool_defs = [tool.tool_definition for tool in tools] if tools else None
+            provider_dict = provider.to_dict() if provider else None
+
+            response = await self.async_client.chat.completions.create(
+                model=model.name,
+                messages=messages,
+                tools=tool_defs,
+                extra_body={"provider": provider_dict},
+                stream=True
+            )
+
+            async for chunk in response:
+                yield chunk
+
+        except Exception as e:
+            logger.exception(f"An error occurred while asynchronously streaming the model: {e.__class__.__name__}: {str(e)}")
+            return
+        
+        

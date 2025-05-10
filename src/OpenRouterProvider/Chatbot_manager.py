@@ -5,6 +5,8 @@ from .LLMs import LLMModel
 from dotenv import load_dotenv
 import time
 import json
+from typing import Iterator, AsyncIterator
+
 
 _base_system_prompt = """
 It's [TIME] today.
@@ -121,3 +123,82 @@ class Chatbot_manager:
 
         return reply
     
+    def invoke_stream(self, model: LLMModel, query: Chat_message, tools: list[tool_model]=[], provider:ProviderConfig=None) -> Iterator[str]:
+        self._memory.append(query)
+        client = OpenRouterProvider()
+        generator = client.invoke_stream(
+            model=model,
+            system_prompt=self._system_prompt,
+            querys=self._memory,
+            tools=self.tools + tools,
+            provider=provider
+        )
+        
+        text = ""
+        for token in generator:
+            text += token.choices[0].delta.content
+            yield token.choices[0].delta.content
+
+        self._memory.append(Chat_message(text=text, role=Role.ai, answerdBy=LLMModel))
+        
+    async def async_invoke(self, model: LLMModel, query: Chat_message, tools: list[tool_model] = [], provider: ProviderConfig = None) -> Chat_message:
+        self._memory.append(query)
+        client = OpenRouterProvider()
+        reply = await client.async_invoke(
+            model=model,
+            system_prompt=self._system_prompt,
+            querys=self._memory,
+            tools=self.tools + tools,
+            provider=provider
+        )
+        reply.answeredBy = model
+        self._memory.append(reply)
+
+        if reply.tool_calls:
+            for requested_tool in reply.tool_calls:
+                args = requested_tool.arguments
+                if isinstance(args, str):
+                    args = json.loads(args)
+
+                for tool in (self.tools + tools):
+                    if tool.name == requested_tool.name:
+                        result = tool(**args)
+                        requested_tool.result = result
+                        break
+                else:
+                    print("Tool Not found", requested_tool.name)
+                    return reply
+
+            reply = await client.async_invoke(
+                model=model,
+                system_prompt=self._system_prompt,
+                querys=self._memory,
+                tools=self.tools + tools,
+                provider=provider
+            )
+            reply.answeredBy = model
+            self._memory.append(reply)
+
+        return reply
+
+    async def async_invoke_stream(self, model: LLMModel, query: Chat_message, tools: list[tool_model] = [], provider: ProviderConfig = None) -> AsyncIterator[str]:
+        self._memory.append(query)
+        client = OpenRouterProvider()
+
+        stream = client.async_invoke_stream(
+            model=model,
+            system_prompt=self._system_prompt,
+            querys=self._memory,
+            tools=self.tools + tools,
+            provider=provider
+        )
+
+        text = ""
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            text += delta
+            yield delta
+
+        self._memory.append(Chat_message(text=text, role=Role.ai, answerdBy=model))
+        
+        
