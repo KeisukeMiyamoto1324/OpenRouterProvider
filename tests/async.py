@@ -37,15 +37,15 @@ async def main():
     query3 = Chat_message(text="What is the user's address?")
 
     responses = await asyncio.gather(
-        ai1.async_invoke(model=gpt_4o_mini, query=query1),
-        ai2.async_invoke(model=gpt_4o_mini, query=query2),
-        ai3.async_invoke(model=gpt_4o_mini, query=query3),
+        # ai1.async_invoke(model=gpt_4o_mini, query=query1),
+        # ai2.async_invoke(model=gpt_4o_mini, query=query2),
+        # ai3.async_invoke(model=gpt_4o_mini, query=query3),
         test_async_invoke_stream()  
     )
 
-    for i, r in enumerate(responses[:-1], start=1):
-        print(f"\n--- Response {i} ---")
-        print(r.text)
+    # for i, r in enumerate(responses[:-1], start=1):
+    #     print(f"\n--- Response {i} ---")
+    #     print(r.text)
 
 
 
