@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import time
 import json
 from typing import Iterator, AsyncIterator
+from pydantic import BaseModel
 
 
 _base_system_prompt = """
@@ -82,15 +83,23 @@ class Chatbot_manager:
             
         print("----------------------------------------------------------\n")
 
-    def invoke(self, model: LLMModel, query: Chat_message, tools: list[tool_model]=[], provider:ProviderConfig=None) -> Chat_message:
+    def invoke(
+        self, 
+        model: LLMModel, 
+        query: Chat_message, 
+        tools: list[tool_model]=[], 
+        provider:ProviderConfig=None,
+        temperature: float=0.3
+    ) -> Chat_message:
         self._memory.append(query)
         client = OpenRouterProvider()
         reply = client.invoke(
             model=model,
+            temperature=temperature,
             system_prompt=self._system_prompt,
             querys=self._memory,
             tools=self.tools + tools,
-            provider=provider
+            provider=provider,
         )
         reply.answeredBy = model
         self._memory.append(reply)
@@ -123,11 +132,19 @@ class Chatbot_manager:
 
         return reply
     
-    def invoke_stream(self, model: LLMModel, query: Chat_message, tools: list[tool_model]=[], provider:ProviderConfig=None) -> Iterator[str]:
+    def invoke_stream(
+        self, 
+        model: LLMModel, 
+        query: Chat_message, 
+        tools: list[tool_model]=[], 
+        provider:ProviderConfig=None,
+        temperature: float=0.3
+    ) -> Iterator[str]:
         self._memory.append(query)
         client = OpenRouterProvider()
         generator = client.invoke_stream(
             model=model,
+            temperature=temperature,
             system_prompt=self._system_prompt,
             querys=self._memory,
             tools=self.tools + tools,
@@ -141,11 +158,19 @@ class Chatbot_manager:
 
         self._memory.append(Chat_message(text=text, role=Role.ai, answerdBy=LLMModel))
         
-    async def async_invoke(self, model: LLMModel, query: Chat_message, tools: list[tool_model] = [], provider: ProviderConfig = None) -> Chat_message:
+    async def async_invoke(
+        self, 
+        model: LLMModel, 
+        query: Chat_message, 
+        tools: list[tool_model] = [], 
+        provider: ProviderConfig = None,
+        temperature: float=0.3
+    ) -> Chat_message:
         self._memory.append(query)
         client = OpenRouterProvider()
         reply = await client.async_invoke(
             model=model,
+            temperature=temperature,
             system_prompt=self._system_prompt,
             querys=self._memory,
             tools=self.tools + tools,
@@ -181,12 +206,20 @@ class Chatbot_manager:
 
         return reply
 
-    async def async_invoke_stream(self, model: LLMModel, query: Chat_message, tools: list[tool_model] = [], provider: ProviderConfig = None) -> AsyncIterator[str]:
+    async def async_invoke_stream(
+        self, 
+        model: LLMModel, 
+        query: Chat_message, 
+        tools: list[tool_model] = [], 
+        provider: ProviderConfig = None,
+        temperature: float=0.3
+    ) -> AsyncIterator[str]:
         self._memory.append(query)
         client = OpenRouterProvider()
 
         stream = client.async_invoke_stream(
             model=model,
+            temperature=temperature,
             system_prompt=self._system_prompt,
             querys=self._memory,
             tools=self.tools + tools,
@@ -201,4 +234,22 @@ class Chatbot_manager:
 
         self._memory.append(Chat_message(text=text, role=Role.ai, answerdBy=model))
         
-        
+    def structured_output(
+        self, 
+        model: LLMModel, 
+        query: Chat_message, 
+        provider:ProviderConfig=None, 
+        json_schema: BaseModel=None,
+        temperature: float=0.3
+    ) -> BaseModel:
+        self._memory.append(query)
+        client = OpenRouterProvider()
+        reply = client.structured_output(
+            model=model,
+            temperature=temperature,
+            system_prompt=self._system_prompt,
+            querys=self._memory,
+            provider=provider,
+            json_schema=json_schema
+        )
+        return reply

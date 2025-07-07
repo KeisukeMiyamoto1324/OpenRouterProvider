@@ -1,3 +1,7 @@
+
+# structured output
+# https://note.com/brave_quince241/n/n60a5759c8f05
+
 import logging
 from .Chat_message import *
 from .Tool import tool_model
@@ -10,6 +14,8 @@ import os, time
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Literal, Iterator, AsyncIterator
 from pprint import pprint
+from pydantic import BaseModel
+
 
 # エラーのみ表示、詳細なトレースバック付き
 logging.basicConfig(level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -47,8 +53,11 @@ class OpenRouterProvider:
             api_key=api_key,
         )
 
-    def make_prompt(self, system_prompt: Chat_message,
-                    querys: list[Chat_message]) -> list[dict]:
+    def make_prompt(
+        self, 
+        system_prompt: Chat_message,
+        querys: list[Chat_message]
+    ) -> list[dict]:
         messages = [{"role": "system", "content": system_prompt.text}]
 
         for query in querys:
@@ -87,21 +96,30 @@ class OpenRouterProvider:
                     "tool_call_id": str(t.id),
                     "content": str(t.result)
                 })
-
+            
         return messages
 
-    def invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools: list[tool_model] = [], provider: ProviderConfig = None) -> Chat_message:
+    def invoke(
+        self, 
+        model: LLMModel, 
+        system_prompt: Chat_message, 
+        querys: list[Chat_message], 
+        tools: list[tool_model] = [], 
+        provider: ProviderConfig = None,
+        temperature: float = 0.3
+    ) -> Chat_message:
         try:
             messages = self.make_prompt(system_prompt, querys)
 
             tool_defs = [tool.tool_definition for tool in tools] if tools else None
             provider_dict = provider.to_dict() if provider else None
-
+            
             response = self.client.chat.completions.create(
                 model=model.name,
+                temperature=temperature,
                 messages=messages,
                 tools=tool_defs,
-                extra_body={"provider": provider_dict}
+                extra_body={"provider": provider_dict},
             )
 
             reply = Chat_message(text=response.choices[0].message.content, role=Role.ai, raw_response=response)
@@ -116,7 +134,15 @@ class OpenRouterProvider:
             logger.exception(f"An error occurred while invoking the model: {e.__class__.__name__}: {str(e)}")
             return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
         
-    def invoke_stream(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools: list[tool_model] = [], provider: ProviderConfig = None) -> Iterator[ChatCompletionChunk]:
+    def invoke_stream(
+        self, 
+        model: LLMModel, 
+        system_prompt: Chat_message, 
+        querys: list[Chat_message], 
+        tools: list[tool_model] = [], 
+        provider: ProviderConfig = None,
+        temperature: float = 0.3
+    ) -> Iterator[ChatCompletionChunk]:
         # chunk example
         # ChatCompletionChunk(id='gen-1746748260-mdKZLTs9QY7MmUxWKb8V', choices=[Choice(delta=ChoiceDelta(content='!', function_call=None, refusal=None, role='assistant', tool_calls=None), finish_reason=None, index=0, logprobs=None, native_finish_reason=None)], created=1746748260, model='openai/gpt-4o-mini', object='chat.completion.chunk', service_tier=None, system_fingerprint='fp_e2f22fdd96', usage=None, provider='OpenAI')
         
@@ -132,6 +158,7 @@ class OpenRouterProvider:
 
             response = self.client.chat.completions.create(
                 model=model.name,
+                temperature=temperature,
                 messages=messages,
                 tools=tool_defs,
                 extra_body={"provider": provider_dict},
@@ -144,7 +171,14 @@ class OpenRouterProvider:
             logger.exception(f"An error occurred while invoking the model: {e.__class__.__name__}: {str(e)}")
             return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
 
-    async def async_invoke(self, model: LLMModel, system_prompt: Chat_message, querys: list[Chat_message], tools: list[tool_model] = [], provider: ProviderConfig = None) -> Chat_message:
+    async def async_invoke(
+        self, model: LLMModel, 
+        system_prompt: Chat_message, 
+        querys: list[Chat_message], 
+        tools: list[tool_model] = [], 
+        provider: ProviderConfig = None,
+        temperature: float = 0.3
+    ) -> Chat_message:
         try:
             messages = self.make_prompt(system_prompt, querys)
 
@@ -153,6 +187,7 @@ class OpenRouterProvider:
 
             response = await self.async_client.chat.completions.create(
                 model=model.name,
+                temperature=temperature,
                 messages=messages,
                 tools=tool_defs,
                 extra_body={"provider": provider_dict}
@@ -176,7 +211,8 @@ class OpenRouterProvider:
         system_prompt: Chat_message,
         querys: list[Chat_message],
         tools: list[tool_model] = [],
-        provider: ProviderConfig = None
+        provider: ProviderConfig = None,
+        temperature: float = 0.3
     ) -> AsyncIterator[ChatCompletionChunk]:
         try:
             messages = self.make_prompt(system_prompt, querys)
@@ -186,6 +222,7 @@ class OpenRouterProvider:
 
             response = await self.async_client.chat.completions.create(
                 model=model.name,
+                temperature=temperature,
                 messages=messages,
                 tools=tool_defs,
                 extra_body={"provider": provider_dict},
@@ -199,4 +236,31 @@ class OpenRouterProvider:
             logger.exception(f"An error occurred while asynchronously streaming the model: {e.__class__.__name__}: {str(e)}")
             return
         
+    def structured_output(
+        self, 
+        model: LLMModel, 
+        system_prompt: Chat_message, 
+        querys: list[Chat_message], 
+        provider: ProviderConfig = None, 
+        json_schema: BaseModel = None,
+        temperature: float = 0.3
+    ) -> BaseModel:
+        try:
+            messages = self.make_prompt(system_prompt, querys)
+            provider_dict = provider.to_dict() if provider else None
+            
+            response = self.client.chat.completions.create(
+                model=model.name,
+                temperature=temperature,
+                messages=messages,
+                response_format={"type": "json_schema", "json_schema": {"name": json_schema.__name__, "schema": json_schema.model_json_schema()}},
+                extra_body={"provider": provider_dict},
+            )
+
+            return json_schema.model_validate_json(response.choices[0].message.content)
+
+        except Exception as e:
+            logger.exception(f"An error occurred while invoking structured output: {e.__class__.__name__}: {str(e)}")
+            return Chat_message(text="Fail to get response. Please see the error message.", role=Role.ai, raw_response=None)
         
+    
